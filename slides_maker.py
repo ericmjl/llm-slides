@@ -19,6 +19,7 @@ app = marimo.App(width="medium")
 def _():
     import llamabot as lmb
     from pydantic import BaseModel, Field
+
     return BaseModel, Field, lmb
 
 
@@ -28,6 +29,7 @@ def _(BaseModel, Field):
         prompt: str = Field(
             description="The prompt that will be sent to the image generation model."
         )
+
     return (ImagePrompt,)
 
 
@@ -46,10 +48,7 @@ def _(ImagePrompt, lmb):
         image = imagebot(image_prompt.prompt)
         return image
 
-
-    image = generate_image(
-        "A photorealistic image of a husky dog with green eyes."
-    )
+    image = generate_image("A photorealistic image of a husky dog with green eyes.")
     return (image,)
 
 
@@ -66,7 +65,6 @@ def _(BaseModel, Field):
     from typing import Literal
     from pydantic import model_validator
     import re
-
 
     class Slide(BaseModel):
         title: str
@@ -101,6 +99,7 @@ def _(BaseModel, Field):
 
     {self.content}
             """
+
     return (Slide,)
 
 
@@ -114,7 +113,6 @@ def _(Slide, lmb):
         that a user asks for.
         Tables should be in HTML.
         """
-
 
     slidemaker = lmb.StructuredBot(slidemaker_sysprompt(), Slide)
     return (slidemaker,)
@@ -145,9 +143,7 @@ def _(mo, slidemaker):
 
 @app.cell
 def _(image, mo, slidemaker):
-    picture_slide = slidemaker(
-        f"A slide that shows a picture of this dog: {image}"
-    )
+    picture_slide = slidemaker(f"A slide that shows a picture of this dog: {image}")
     mo.md(picture_slide.render())
     return
 
@@ -175,7 +171,9 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""Now I am going to try a different thing: we'll try compiling a whole slide deck.""")
+    mo.md(
+        r"""Now I am going to try a different thing: we'll try compiling a whole slide deck."""
+    )
     return
 
 
@@ -184,7 +182,6 @@ def _(BaseModel, Slide, lmb, slidemaker):
     from pathlib import Path
     from slugify import slugify
     from typing import Optional
-
 
     @lmb.prompt("user")
     def slidemaker_edit(new_request, existing_slide):
@@ -199,7 +196,6 @@ def _(BaseModel, Slide, lmb, slidemaker):
         Help me create a new slide based on the new request,
         using the existing slide as inspiration or basis where appropriate.
         """
-
 
     @lmb.prompt("user")
     def slidemaker_insert(
@@ -221,7 +217,6 @@ def _(BaseModel, Slide, lmb, slidemaker):
         Help me create a new slide based on the new request,
         weaving it seamlessly with the slide before and after.
         """
-
 
     class SlideDeck(BaseModel):
         slides: list[Slide]
@@ -266,7 +261,9 @@ def _(BaseModel, Slide, lmb, slidemaker):
 
         def select(self, description: str):
             """Return a slide's index by natural language."""
-            docstore = lmb.LanceDBDocStore(table_name="deckbot", storage_path=Path("/tmp"))
+            docstore = lmb.LanceDBDocStore(
+                table_name="deckbot", storage_path=Path("/tmp")
+            )
             docstore.reset()
             docstore.extend([slide.render() for slide in self.slides])
             index = {slide.render(): i for i, slide in enumerate(self.slides)}
@@ -279,6 +276,7 @@ def _(BaseModel, Slide, lmb, slidemaker):
             current_slides = self.render()  # used for context
             new_slide = slidemaker(slidemaker_insert(description, current_slides))
             self.slides.insert(index, new_slide)
+
     return Path, SlideDeck
 
 
@@ -289,7 +287,6 @@ def _(SlideDeck, lmb):
         """You are a bot that helps people make slides for a presentation.
         Vary the style of slides when you generate them, do not stick to only bullet points.
         Quotes should be formatted as such."""
-
 
     chat_memory = lmb.LanceDBDocStore(table_name="deckbot-chat-memory")
     chat_memory.reset()
