@@ -175,14 +175,12 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""Now I am going to try a different thing: we'll try compiling a whole slide deck."""
-    )
+    mo.md(r"""Now I am going to try a different thing: we'll try compiling a whole slide deck.""")
     return
 
 
 @app.cell
-def _(BaseModel, Slide, change, lmb, slidemaker):
+def _(BaseModel, Slide, lmb, slidemaker):
     from pathlib import Path
     from slugify import slugify
     from typing import Optional
@@ -279,7 +277,7 @@ def _(BaseModel, Slide, change, lmb, slidemaker):
         def insert(self, index, description):
             """Insert a slide just before a given index."""
             current_slides = self.render()  # used for context
-            new_slide = slidemaker(slidemaker_insert(change, current_slides))
+            new_slide = slidemaker(slidemaker_insert(description, current_slides))
             self.slides.insert(index, new_slide)
     return Path, SlideDeck
 
@@ -349,6 +347,13 @@ def _(deck):
 
 @app.cell
 def _(deck, mo):
+    mo.md(deck.render())
+    return
+
+
+@app.cell
+def _(deck, mo):
+    deck.insert(1, "A slide that uses a mermaid diagram that shows how to use deckbot.")
     mo.md(deck.render())
     return
 
