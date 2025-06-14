@@ -64,12 +64,37 @@ def _(image):
 @app.cell
 def _(BaseModel, Field):
     from typing import Literal
+    from pydantic import model_validator
+    import re
 
 
     class Slide(BaseModel):
         title: str
         content: str = Field(description="Arbitrary markdown or HTML content")
         type: Literal["HTML", "Markdown"]
+
+        @model_validator(mode="after")
+        def check_no_header_in_content(self):
+            """Check that there are no headers in the content, this is explicitly not allowed."""
+            # Check for Markdown headers (# Header, ## Header, etc.)
+            if self.type == "Markdown":
+                # Look for lines starting with one or more # followed by a space
+                header_pattern = re.compile(r"^#{1,6}\s", re.MULTILINE)
+                if header_pattern.search(self.content):
+                    raise ValueError(
+                        "Headers are not allowed in slide content. Use regular text formatting instead."
+                    )
+
+            # For HTML content, check for header tags
+            elif self.type == "HTML":
+                header_tags = ["<h1", "<h2", "<h3", "<h4", "<h5", "<h6"]
+                for tag in header_tags:
+                    if tag in self.content.lower():
+                        raise ValueError(
+                            "HTML header tags (h1-h6) are not allowed in slide content."
+                        )
+
+            return self
 
         def render(self):
             return f"""## {self.title}
@@ -150,19 +175,21 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""Now I am going to try a different thing: we'll try compiling a whole slide deck.""")
+    mo.md(
+        r"""Now I am going to try a different thing: we'll try compiling a whole slide deck."""
+    )
     return
 
 
 @app.cell
-def _(BaseModel, Slide, lmb, slidemaker):
+def _(BaseModel, Slide, change, lmb, slidemaker):
     from pathlib import Path
     from slugify import slugify
     from typing import Optional
 
 
     @lmb.prompt("user")
-    def slidemaker_edit(existing_slide, new_request):
+    def slidemaker_edit(new_request, existing_slide):
         """This is the request for an edit on a slide.
 
         {{ new_request }}
@@ -179,24 +206,19 @@ def _(BaseModel, Slide, lmb, slidemaker):
     @lmb.prompt("user")
     def slidemaker_insert(
         new_request: str,
-        slide_before: Optional[str] = None,
-        slide_after: Optional[str] = None,
+        existing_slides: str,
     ):
         """This is the request to insert a slide.
 
         {{ new_request }}
 
-        {% if slide_before %}
-        The slide preceding the new slide is:
+        ---
 
-        {{ slide_before }}
-        {% endif %}
+        Here is the current state of the slides:
 
-        {% if slide_after %}
-        The slide succeeding the new slide is:
+        {{ existing_slides }}
 
-        {{ slide_after }}
-        {% endif %}
+        ---
 
         Help me create a new slide based on the new request,
         weaving it seamlessly with the slide before and after.
@@ -241,12 +263,12 @@ def _(BaseModel, Slide, lmb, slidemaker):
             """Edit the slide at a given index."""
             current_slide = self.slides[index].render()
 
-            new_slide = slidemaker(slidemaker_edit(current_slide, change))
+            new_slide = slidemaker(slidemaker_edit(change, current_slide))
             self.slides[index] = new_slide
 
         def select(self, description: str):
             """Return a slide's index by natural language."""
-            docstore = lmb.BM25DocStore()
+            docstore = lmb.LanceDBDocStore(table_name="deckbot", storage_path=Path("/tmp"))
             docstore.reset()
             docstore.extend([slide.render() for slide in self.slides])
             index = {slide.render(): i for i, slide in enumerate(self.slides)}
@@ -256,8 +278,9 @@ def _(BaseModel, Slide, lmb, slidemaker):
 
         def insert(self, index, description):
             """Insert a slide just before a given index."""
-            preceding_index = max(index - 1, 0)
-            succeeding_index = min(index + 1, len(self.slides))
+            current_slides = self.render()  # used for context
+            new_slide = slidemaker(slidemaker_insert(change, current_slides))
+            self.slides.insert(index, new_slide)
     return Path, SlideDeck
 
 
@@ -302,7 +325,10 @@ def _(deck, mo):
 
 @app.cell
 def _(deck):
-    deck.edit(deck.select("User testimonial"), "Just one testimonial please")
+    deck.edit(
+        deck.select("User testimonial"),
+        "Change to two testimonials, side-by-side, in two columns.",
+    )
     return
 
 
@@ -314,7 +340,10 @@ def _(deck, mo):
 
 @app.cell
 def _(deck):
-    deck.edit(deck.select("User testimonial"), "Two testimonials instead, but make it two columns in HTML.")
+    deck.edit(
+        deck.select("What users say"),
+        "Two testimonials instead, but make it two columns in HTML.",
+    )
     return
 
 
@@ -332,8 +361,6 @@ def _(Path, deck):
 
 @app.cell
 def _():
-
-
     return
 
 
