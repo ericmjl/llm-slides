@@ -1,79 +1,52 @@
 # LLM Slides
 
-A command-line tool for creating and managing slide presentations using LLMs and Markdown.
+A Python-based tool for creating and managing slide presentations using LLMs and Markdown, built with LlamaBot and Marimo.
 
 ## Features
 
-- Create and manage slide decks using Markdown
-- Generate slide content using LLMs (via LlamaBot)
-- Generate and embed images in slides
-- Interactive slide editing mode
-- Live preview with MkSlides
-- Atomic operations for slide management
-
-## Installation
-
-```bash
-pip install llm-slides
-```
-
-## Quick Start
-
-1. Create a new presentation:
-```bash
-llm-slides init "My Presentation"
-```
-
-2. Add a slide:
-```bash
-llm-slides add --title "Introduction" --type "title"
-```
-
-3. Start interactive mode:
-```bash
-llm-slides interactive
-```
-
-4. Serve the presentation:
-```bash
-llm-slides serve
-```
-
-## Documentation
-
-For detailed documentation, please see the [docs](docs/) directory:
-
-- [Design Document](docs/design.md)
-- [User Guide](docs/user-guide.md) (coming soon)
-- [API Reference](docs/api.md) (coming soon)
+- Create slides using natural language prompts
+- Generate content with LLMs (via LlamaBot)
+- Support for both Markdown and HTML content
+- Interactive slide editing and preview
+- Automatic slide deck management
+- Semantic slide selection and editing
+- Support for:
+  - Tables (in HTML)
+  - Two-column layouts
+  - Mermaid diagrams
+  - YouTube embeds
+  - Images
 
 ## Development
 
-### Setup
+### Requirements
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/llm-slides.git
-cd llm-slides
-```
+- Python >= 3.13
+- Dependencies:
+  - anthropic==0.54.0
+  - ipython==9.3.0
+  - llamabot[all]==0.12.7
+  - marimo
+  - pydantic==2.11.5
 
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
 
-3. Install dependencies:
-```bash
-pip install -e ".[dev]"
-```
+### Interactive Development
 
-### Running Tests
+For interactive development and experimentation, use Marimo:
 
 ```bash
-pytest
+uvx marimo edit --sandbox https://raw.githubusercontent.com/ericmjl/llm-slides/refs/heads/main/slides_maker.py
 ```
 
-## License
+You can also clone the repo directly and edit the notebook:
 
-MIT License - see [LICENSE](LICENSE) for details.
+```bash
+uvx marimo edit --sandbox slides_maker.py
+```
+
+This opens an interactive notebook where you can:
+
+- Create and edit slides using natural language
+- Preview slide content in real-time
+- Test different LLM prompts
+- Debug and refine your presentation
