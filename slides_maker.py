@@ -24,39 +24,9 @@ def _():
 
 
 @app.cell
-def _(BaseModel, Field):
-    class ImagePrompt(BaseModel):
-        prompt: str = Field(
-            description="The prompt that will be sent to the image generation model."
-        )
-
-    return (ImagePrompt,)
-
-
-@app.cell
-def _(ImagePrompt, lmb):
-    def generate_image(prompt: str):
-        imagebot = lmb.ImageBot(model="dall-e-3")
-        imagebot_prompt_generator = lmb.StructuredBot(
-            system_prompt="You are a prompt generator for another image model.",
-            model_name="gpt-4.1",
-            pydantic_model=ImagePrompt,
-        )
-
-        # Test-drive imagebot_prompt_generator
-        image_prompt = imagebot_prompt_generator(prompt)
-        image = imagebot(image_prompt.prompt)
-        return image
-
-    image = generate_image("A photorealistic image of a husky dog with green eyes.")
-    return (image,)
-
-
-@app.cell
-def _(image):
+def _():
     import marimo as mo
 
-    mo.image(image)
     return (mo,)
 
 
