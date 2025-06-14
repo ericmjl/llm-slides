@@ -5,6 +5,7 @@
 #     "ipython==9.3.0",
 #     "llamabot[all]==0.12.7",
 #     "marimo",
+#     "openai==1.86.0",
 #     "pydantic==2.11.5",
 # ]
 # ///
@@ -18,24 +19,35 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import llamabot as lmb
+
     from pydantic import BaseModel, Field
-
-    return BaseModel, Field, lmb
-
-
-@app.cell
-def _():
     import marimo as mo
-
-    return (mo,)
-
-
-@app.cell
-def _(BaseModel, Field):
     from typing import Literal
     from pydantic import model_validator
     import re
+    from pathlib import Path
+    from slugify import slugify
+    from typing import Optional
+    import openai
+    import tempfile
+    import os
+    return (
+        BaseModel,
+        Field,
+        Literal,
+        Path,
+        lmb,
+        mo,
+        model_validator,
+        openai,
+        os,
+        re,
+        tempfile,
+    )
 
+
+@app.cell
+def _(BaseModel, Field, Literal, model_validator, re):
     class Slide(BaseModel):
         title: str
         content: str = Field(description="Arbitrary markdown or HTML content")
@@ -69,7 +81,6 @@ def _(BaseModel, Field):
 
     {self.content}
             """
-
     return (Slide,)
 
 
@@ -83,6 +94,7 @@ def _(Slide, lmb):
         that a user asks for.
         Tables should be in HTML.
         """
+
 
     slidemaker = lmb.StructuredBot(slidemaker_sysprompt(), Slide)
     return (slidemaker,)
@@ -108,13 +120,6 @@ def _(mo, slidemaker):
         "Two columns of bullet points. One column says pros of buying a thing, other is cons."
     )
     mo.md(two_column_slide.render())
-    return
-
-
-@app.cell
-def _(image, mo, slidemaker):
-    picture_slide = slidemaker(f"A slide that shows a picture of this dog: {image}")
-    mo.md(picture_slide.render())
     return
 
 
@@ -148,11 +153,7 @@ def _(mo):
 
 
 @app.cell
-def _(BaseModel, Slide, lmb, slidemaker):
-    from pathlib import Path
-    from slugify import slugify
-    from typing import Optional
-
+def _(BaseModel, Path, Slide, lmb, slidemaker):
     @lmb.prompt("user")
     def slidemaker_edit(new_request, existing_slide):
         """This is the request for an edit on a slide.
@@ -166,6 +167,7 @@ def _(BaseModel, Slide, lmb, slidemaker):
         Help me create a new slide based on the new request,
         using the existing slide as inspiration or basis where appropriate.
         """
+
 
     @lmb.prompt("user")
     def slidemaker_insert(
@@ -187,6 +189,7 @@ def _(BaseModel, Slide, lmb, slidemaker):
         Help me create a new slide based on the new request,
         weaving it seamlessly with the slide before and after.
         """
+
 
     class SlideDeck(BaseModel):
         slides: list[Slide]
@@ -246,8 +249,7 @@ def _(BaseModel, Slide, lmb, slidemaker):
             current_slides = self.render()  # used for context
             new_slide = slidemaker(slidemaker_insert(description, current_slides))
             self.slides.insert(index, new_slide)
-
-    return Path, SlideDeck
+    return (SlideDeck,)
 
 
 @app.cell
@@ -257,6 +259,7 @@ def _(SlideDeck, lmb):
         """You are a bot that helps people make slides for a presentation.
         Vary the style of slides when you generate them, do not stick to only bullet points.
         Quotes should be formatted as such."""
+
 
     chat_memory = lmb.LanceDBDocStore(table_name="deckbot-chat-memory")
     chat_memory.reset()
@@ -270,64 +273,99 @@ def _(SlideDeck, lmb):
 
 
 @app.cell
-def _(deckbot):
-    deck = deckbot("A talk on DeckBot, which is what I now use to make slides.")
+def _(deckbot, mo):
+    deck = deckbot(
+        "A talk on `deckbot`, which is what I now use to make slides. I want the following sections: (a) why deckbot, (b) how it works (your prompt is to describe what you want in as much or as little detail as you like and call deckbot(your prompt here), and then (c) testimonials, and finally (d) how to try it (pip install deckbot)"
+    )
+    mo.md(deck.render())
     return (deck,)
 
 
 @app.cell
-def _(deck, mo):
-    mo.md(deck.render())
+def _(mo):
+    microphone = mo.ui.microphone(label="What would you like to make?")
+    microphone
+    return (microphone,)
+
+
+@app.cell
+def _():
     return
 
 
 @app.cell
-def _(deck, mo):
-    deck.edit(1, "Change this to use an appropriate quote from scripture.")
-    mo.md(deck.render())
-    return
+def _(openai, os, tempfile):
+    def transcribe(microphone):
+        # Save the audio data to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            temp_file.write(
+                microphone.value.getvalue()
+            )  # Use getvalue() to get bytes from BytesIO
+            temp_file_path = temp_file.name
+
+        try:
+            # Use OpenAI's Whisper API to transcribe the audio
+            client = (
+                openai.OpenAI()
+            )  # Assumes API key is set in environment variables
+
+            with open(temp_file_path, "rb") as audio_file:
+                transcript = client.audio.transcriptions.create(
+                    model="whisper-1", file=audio_file
+                )
+
+            # Display the transcription
+            return transcript
+
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+    return (transcribe,)
 
 
 @app.cell
-def _(deck):
-    deck.edit(
-        deck.select("User testimonial"),
-        "Change to two testimonials, side-by-side, in two columns.",
+def _(deckbot, microphone, mo, transcribe):
+    transcribed_deck = None
+    if microphone.value:
+        transcribed_deck = deckbot(transcribe(microphone).text)
+    mo.md(transcribed_deck.render())
+    return (transcribed_deck,)
+
+
+@app.cell
+def _(mo, transcribed_deck):
+    edit_microphone = mo.ui.microphone(label="What would you like to edit?")
+    slide_selector = mo.ui.dropdown(
+        label="Select the slide you want to edit.",
+        options=list(range(len(transcribed_deck.slides))),
     )
+    mo.vstack([slide_selector, edit_microphone])
+    return edit_microphone, slide_selector
+
+
+@app.cell
+def _(edit_microphone, mo):
+    mo.audio(edit_microphone.value)
     return
 
 
 @app.cell
-def _(deck, mo):
+def _(edit_microphone, transcribe):
+    transcribed_edit_request = transcribe(edit_microphone).text
+    transcribed_edit_request
+    return (transcribed_edit_request,)
+
+
+@app.cell
+def _(deck, mo, slide_selector, transcribed_deck, transcribed_edit_request):
+    transcribed_deck.edit(slide_selector.value, transcribed_edit_request)
     mo.md(deck.render())
     return
 
 
 @app.cell
-def _(deck):
-    deck.edit(
-        deck.select("What users say"),
-        "Two testimonials instead, but make it two columns in HTML.",
-    )
-    return
-
-
-@app.cell
-def _(deck, mo):
-    mo.md(deck.render())
-    return
-
-
-@app.cell
-def _(deck, mo):
-    deck.insert(1, "A slide that uses a mermaid diagram that shows how to use deckbot.")
-    mo.md(deck.render())
-    return
-
-
-@app.cell
-def _(Path, deck):
-    deck.save(Path("deckbot.md"))
+def _():
     return
 
 
